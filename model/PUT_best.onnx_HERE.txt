@@ -1,0 +1,4 @@
+Optional: drop a custom-trained best.onnx in this folder (see TRAINING.md).
+Overwrite classes.json with the one the training notebook prints/downloads,
+so the class order matches your model exactly.
+Until best.onnx is here, the app runs in SIMULATION mode.

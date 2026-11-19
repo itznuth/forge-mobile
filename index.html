@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0d10">
+<title>F.O.R.G.E. Mobile</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-title" content="FORGE">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<style>
+  :root {
+    --bg: #0b0d10; --panel: #14181d; --line: #242a31; --text: #e8ecf0; --muted: #8a94a0;
+    --accent: #ff6a1a; --ok: #2ecc71; --warn: #f1c40f; --bad: #e74c3c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+  body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; }
+  .brand { font-weight: 800; letter-spacing: .12em; }
+  .brand span { color: var(--accent); }
+  .pill { font-size: 12px; padding: 4px 10px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
+  .pill.live { color: var(--ok); border-color: #1f5d3a; }
+  .pill.sim { color: var(--warn); border-color: #5d4f1f; }
+  .stage { position: relative; margin: 0 10px; border-radius: 14px; overflow: hidden; background: #000; aspect-ratio: 3 / 4; }
+  video, canvas.overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .start { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: radial-gradient(circle at 50% 40%, #1b2128, #050607); text-align: center; padding: 24px; }
+  .start p { color: var(--muted); margin: 0; max-width: 280px; }
+  button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
+  button:active { transform: scale(.97); }
+  .primary { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 700; padding: 14px 26px; }
+  .hud { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+  .hud .pill { background: rgba(0,0,0,.6); }
+  .find { display: flex; gap: 8px; padding: 10px 10px 6px; }
+  .find input { flex: 1; min-width: 0; font: inherit; font-size: 16px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .find .primary { padding: 12px 18px; }
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding: 0 10px 10px; scrollbar-width: none; min-height: 8px; }
+  .chips button { flex: none; padding: 8px 12px; border-radius: 99px; font-size: 14px; }
+  .chips button.active { border-color: var(--accent); color: var(--accent); }
+  .chips .hint { color: var(--muted); font-size: 13px; padding: 6px 2px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 0 10px 10px; }
+  .mic.listening { background: var(--bad); border-color: var(--bad); }
+  section { margin: 0 10px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 8px; }
+  .inv { display: grid; gap: 6px; }
+  .tool { display: flex; align-items: center; justify-content: space-between; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 8px; background: var(--bad); }
+  .dot.on { background: var(--ok); }
+  .meta { color: var(--muted); font-size: 12px; }
+  .say { font-size: 14px; min-height: 20px; }
+  .log { max-height: 180px; overflow: auto; font: 12px/1.5 ui-monospace, Menlo, monospace; color: var(--muted); }
+  .log div b { color: var(--text); font-weight: 600; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+  .stats b { display: block; font-size: 20px; }
+  footer { text-align: center; color: var(--muted); font-size: 11px; padding: 6px 0 18px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">F<span>.</span>O<span>.</span>R<span>.</span>G<span>.</span>E<span>.</span></div>
+  <div id="modePill" class="pill">offline</div>
+</header>
+
+<div class="stage" id="stage">
+  <video id="video" playsinline muted autoplay></video>
+  <canvas id="overlay" class="overlay"></canvas>
+  <div class="hud"><span id="fpsPill" class="pill">— fps</span><span id="lockPill" class="pill">AUTO</span></div>
+  <div class="start" id="startScreen">
+    <div class="brand" style="font-size:22px">F<span>.</span>O<span>.</span>R<span>.</span>G<span>.</span>E<span>.</span> Mobile</div>
+    <p>Point your camera at anything. Say or type "find cup" and FORGE will guide you to it.</p>
+    <button class="primary" id="startBtn">Start camera</button>
+    <p id="startMsg" class="meta"></p>
+  </div>
+</div>
+
+<form class="find" id="findForm">
+  <input id="findInput" placeholder="Find anything… (cup, phone, scissors)" autocomplete="off" enterkeyhint="search">
+  <button class="primary" type="submit">Find</button>
+</form>
+<div class="chips" id="toolButtons"></div>
+<div class="row2">
+  <button id="autoBtn">Auto</button>
+  <button id="seeBtn">What do you see</button>
+  <button id="micBtn" class="mic">🎙 Voice</button>
+</div>
+
+<section>
+  <h2>FORGE says</h2>
+  <div class="say" id="say">Ready.</div>
+</section>
+
+<section>
+  <h2>In view</h2>
+  <div class="inv" id="inventory"></div>
+</section>
+
+<section>
+  <h2>Session stats</h2>
+  <div class="stats">
+    <div><b id="statFinds">0</b><span class="meta">finds</span></div>
+    <div><b id="statCmds">0</b><span class="meta">commands</span></div>
+    <div><b id="statInf">—</b><span class="meta">ms / frame</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Event log</h2>
+  <div class="log" id="log"></div>
+  <div style="display:flex; gap:8px; margin-top:8px">
+    <button id="clearLog" style="flex:1">Clear history</button>
+  </div>
+</section>
+
+<footer>Flexible Operations &amp; Robotics Guided Environment · on-device object detection</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+<script src="forge.js"></script>
+</body>
+</html>

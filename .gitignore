@@ -1,0 +1,15 @@
+# model weights are large: keep them out of git (see TRAINING.md)
+*.onnx
+*.pt
+*.tflite
+*.h5
+# secrets / local env
+.env
+.env.*
+*.key
+*.pem
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
