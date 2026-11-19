@@ -48,6 +48,10 @@
     "hair dryer": "hair drier", "hairdryer": "hair drier", "bike": "bicycle", "motorbike": "motorcycle",
     "water bottle": "bottle", "people": "person", "someone": "person", "me": "person", "doughnut": "donut",
     "screw driver": "screwdriver", "plier": "pliers",
+    // FORGE workbench model (model/classes.json)
+    "allen key": "allen_keys", "allen wrench": "allen_keys", "hex key": "allen_keys", "hex wrench": "allen_keys",
+    "saw": "handsaw", "hand saw": "handsaw", "tape": "tape_measure", "measuring tape": "tape_measure",
+    "tape measurer": "tape_measure", "spanner": "wrench",
   };
 
   // ---------- dom ----------
@@ -65,6 +69,8 @@
     backend: "none",        // "onnx" | "coco" | "sim"
     sim: false,
     session: null,
+    customClasses: null,    // class list of model/best.onnx, when it loaded
+    switching: false,
     coco: null,
     running: false,
     locked: null,          // tool name or null (auto mode)
@@ -233,7 +239,7 @@
         ok = false;
         const what = askedFor(text);
         msg = what
-          ? `I can't recognize "${what}" yet. ${state.backend === "onnx" ? "It's not in your custom model." : "It's not one of the 80 object types I know."}`
+          ? `I can't recognize "${what}" yet. ${state.backend === "onnx" ? "Tools mode only knows workbench tools. Tap the mode button to switch to everyday objects." : "It's not one of the 80 object types I know."}${state.backend === "coco" && state.customClasses ? " Tap the mode button for workbench tools." : ""}`
           : "I didn't catch what to find.";
       } else {
         state.locked = tool;
@@ -338,6 +344,7 @@
     ort.env.wasm.numThreads = 1; // iOS Safari: no SharedArrayBuffer on GitHub Pages
     state.session = await ort.InferenceSession.create(CONFIG.modelUrl, { executionProviders: ["wasm"], graphOptimizationLevel: "all" });
     state.classes = Array.isArray(c) ? c : Object.keys(c).sort((a, b) => +a - +b).map((k) => c[k]);
+    state.customClasses = state.classes.slice();
     state.backend = "onnx";
   }
 
@@ -358,6 +365,38 @@
     try { await state.coco.detect(video, 1, CONFIG.confThreshold); } catch {}
     state.classes = COCO.slice();
     state.backend = "coco";
+  }
+
+  function setModeLabel() {
+    const canSwitch = !!state.customClasses;
+    ui.mode.textContent = state.backend === "onnx" ? "LIVE · TOOLS" : "LIVE · 80 OBJECTS";
+    if (canSwitch) ui.mode.textContent += " ⇄";
+    ui.mode.className = "pill live" + (canSwitch ? " switch" : "");
+  }
+
+  // tap the mode pill: workbench tools (custom YOLO) <-> 80 everyday objects (COCO-SSD)
+  async function switchModel() {
+    if (!state.running || state.switching || !state.customClasses) return;
+    state.switching = true;
+    const toCoco = state.backend === "onnx";
+    ui.mode.textContent = "SWITCHING…";
+    try {
+      if (toCoco) {
+        if (!state.coco) await loadCoco();
+        state.backend = "coco"; state.classes = COCO.slice();
+      } else {
+        state.backend = "onnx"; state.classes = state.customClasses.slice();
+      }
+      state.tools = {}; state.detections = []; state.locked = null;
+      buildToolUI();
+      say(toCoco ? "Everyday objects mode." : "Workbench tools mode.", true);
+      log("system", toCoco ? "switched to COCO-SSD (80 everyday objects)" : `switched to workbench tools (${state.classes.length} types)`);
+    } catch (e) {
+      log("error", "couldn't switch model: " + e.message);
+      say("Couldn't load the other model.", true);
+    }
+    setModeLabel();
+    state.switching = false;
   }
 
   async function loadModel() {
@@ -583,20 +622,26 @@
 
   async function loop(t) {
     if (!state.running) return;
-    if (!busy && video.readyState >= 2 && video.videoWidth > 0) {
+    if (!busy && !state.switching && video.readyState >= 2 && video.videoWidth > 0) {
       busy = true;
       const t0 = performance.now();
+      const be = state.backend;
       try {
-        if (state.backend === "sim") state.detections = simDetect(t);
-        else if (state.backend === "coco") state.detections = await cocoDetect();
+        let dets;
+        if (be === "sim") dets = simDetect(t);
+        else if (be === "coco") dets = await cocoDetect();
         else {
           const pre = preprocess();
           const out = await state.session.run({ [state.session.inputNames[0]]: pre.tensor });
-          state.detections = postprocess(out[state.session.outputNames[0]], pre);
+          dets = postprocess(out[state.session.outputNames[0]], pre);
         }
-        ui.inf.textContent = Math.round(performance.now() - t0);
-        updateTracker(state.detections);
-        frames++;
+        // the model was switched while this frame ran: drop its results (wrong class list)
+        if (state.backend === be && !state.switching) {
+          state.detections = dets;
+          ui.inf.textContent = Math.round(performance.now() - t0);
+          updateTracker(dets);
+          frames++;
+        }
       } catch (e) {
         console.error(e);
         log("error", e.message);
@@ -652,8 +697,7 @@
     try {
       const which = await loadModel();
       state.sim = false;
-      ui.mode.textContent = state.backend === "onnx" ? "LIVE · CUSTOM" : "LIVE · 80 OBJECTS";
-      ui.mode.className = "pill live";
+      setModeLabel();
       log("system", `${which} loaded (${state.classes.length} object types)`);
       buildToolUI();
     } catch (e) {
@@ -683,6 +727,7 @@
   restoreLog();
   setupVoice();
   $("startBtn").onclick = start;
+  ui.mode.onclick = switchModel;
   $("findForm").onsubmit = (e) => {
     e.preventDefault();
     const v = $("findInput").value.trim();

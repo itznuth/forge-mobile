@@ -16,6 +16,12 @@ Vosk voice, FastAPI + React dashboard). This version moves the whole pipeline on
 
 Everything runs on-device: no server, no cloud inference.
 
+## Two detection modes (tap the mode pill to switch)
+- **Tools:** the FORGE workbench model, YOLO11n trained on 7 tools: allen keys, hammer, handsaw, pliers,
+  screwdriver, tape measure, wrench. Validation: **mAP@50 98.1%, mAP@50-95 94.5%, precision 96.6%, recall 96.2%**.
+  Runs in `onnxruntime-web` (WASM).
+- **80 objects:** pretrained COCO-SSD in TensorFlow.js (WebGL), for everyday things like cups, phones and laptops.
+
 ## Run it on your iPhone
 
 1. Create a GitHub repo (e.g. `forge-mobile`) and upload these files.
@@ -23,11 +29,11 @@ Everything runs on-device: no server, no cloud inference.
 3. Open `https://<your-username>.github.io/forge-mobile/` in Safari → **Start camera** → allow camera.
 4. Optional: **Share → Add to Home Screen** to get an app icon.
 
-With no model in `model/`, it runs in **simulation mode** so you can try the UI right away.
-To get real detection, follow **TRAINING.md** and drop `best.onnx` + `classes.json` into `model/`.
+If no model can load, it falls back to **simulation mode** so the UI still works.
+To retrain the tools model, follow **TRAINING.md** and replace `model/best.onnx` + `model/classes.json`.
 
 ## Commands
-Buttons or voice (🎙): `find wrench` · `find pliers` · `find screwdriver` · `what do you see` · `status` · `auto` · `unlock`
+Type, tap or say (🎙): `find wrench` · `find allen key` · `find tape measure` · `what do you see` · `status` · `auto` · `unlock`
 
 ## Files
 - `index.html`: UI
