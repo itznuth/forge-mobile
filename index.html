@@ -4,8 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0b0d10">
+<meta name="description" content="F.O.R.G.E. Mobile: live on-device tool detection, voice commands and guidance in the browser. A phone rebuild of a CSULB senior design smart workbench.">
 <title>F.O.R.G.E. Mobile</title>
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-title" content="FORGE">
@@ -17,25 +19,40 @@
     --accent: #ff6a1a; --ok: #2ecc71; --warn: #f1c40f; --bad: #e74c3c;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; background: var(--bg); color: var(--text);
     font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
   body { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-  header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; }
   .brand { font-weight: 800; letter-spacing: .12em; }
   .brand span { color: var(--accent); }
-  .pill { font-size: 12px; padding: 4px 10px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); }
+  .hright { display: flex; align-items: center; gap: 8px; }
+  .pill { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 99px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   .pill.live { color: var(--ok); border-color: #1f5d3a; }
   .pill.sim { color: var(--warn); border-color: #5d4f1f; }
   .pill.switch { cursor: pointer; color: var(--text); border-color: var(--accent); }
+  .icon-btn { padding: 6px 10px; border-radius: 10px; font-size: 16px; line-height: 1; }
+
   .stage { position: relative; margin: 0 10px; border-radius: 14px; overflow: hidden; background: #000; aspect-ratio: 3 / 4; }
   video, canvas.overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  canvas.overlay { touch-action: manipulation; }
   .start { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: radial-gradient(circle at 50% 40%, #1b2128, #050607); text-align: center; padding: 24px; }
-  .start p { color: var(--muted); margin: 0; max-width: 280px; }
-  button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
-  button:active { transform: scale(.97); }
-  .primary { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 700; padding: 14px 26px; }
+  .start p { color: var(--muted); margin: 0; max-width: 300px; }
+  .progress { width: 220px; height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; display: none; }
+  .progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
   .hud { position: absolute; left: 10px; right: 10px; bottom: 10px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
   .hud .pill { background: rgba(0,0,0,.6); }
+  .guide { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); pointer-events: none; display: none;
+    font-weight: 800; letter-spacing: .06em; font-size: 15px; padding: 6px 14px; border-radius: 99px; background: rgba(0,0,0,.65); color: #fff; white-space: nowrap; }
+  .guide.on { background: rgba(255,59,48,.9); }
+  .watchbadge { position: absolute; right: 10px; top: 12px; pointer-events: none; display: none; }
+  .watchbadge .pill { background: rgba(0,0,0,.65); color: var(--accent); border-color: var(--accent); }
+
+  button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity: .5; }
+  .primary { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 700; padding: 14px 26px; }
   .find { display: flex; gap: 8px; padding: 10px 10px 6px; }
   .find input { flex: 1; min-width: 0; font: inherit; font-size: 16px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
   .find .primary { padding: 12px 18px; }
@@ -43,50 +60,89 @@
   .chips button { flex: none; padding: 8px 12px; border-radius: 99px; font-size: 14px; }
   .chips button.active { border-color: var(--accent); color: var(--accent); }
   .chips .hint { color: var(--muted); font-size: 13px; padding: 6px 2px; }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 0 10px 10px; }
+  .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 10px 10px; }
+  .row button { padding: 10px 4px; font-size: 13px; }
   .mic.listening { background: var(--bad); border-color: var(--bad); }
+
   section { margin: 0 10px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
-  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 8px; }
-  .inv { display: grid; gap: 6px; }
-  .tool { display: flex; align-items: center; justify-content: space-between; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 8px; background: var(--bad); }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; }
+  .inv, .bench { display: grid; gap: 6px; }
+  .tool { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 8px; background: var(--bad); flex: none; }
   .dot.on { background: var(--ok); }
+  .dot.warn { background: var(--warn); }
   .meta { color: var(--muted); font-size: 12px; }
+  .bad { color: var(--bad); font-weight: 600; }
   .say { font-size: 14px; min-height: 20px; }
   .log { max-height: 180px; overflow: auto; font: 12px/1.5 ui-monospace, Menlo, monospace; color: var(--muted); }
   .log div b { color: var(--text); font-weight: 600; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; }
   .stats b { display: block; font-size: 20px; }
-  footer { text-align: center; color: var(--muted); font-size: 11px; padding: 6px 0 18px; }
+  .btnrow { display: flex; gap: 8px; margin-top: 10px; }
+  .btnrow button { flex: 1; padding: 10px; font-size: 14px; }
+  .help { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  details summary { cursor: pointer; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after { content: " ＋"; color: var(--accent); }
+  details[open] summary::after { content: " －"; }
+  .about { font-size: 14px; color: var(--text); }
+  .about h3 { font-size: 14px; margin: 14px 0 6px; color: var(--accent); }
+  .about p { margin: 0 0 8px; color: #c7ced6; }
+  .about table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .about td { border-top: 1px solid var(--line); padding: 6px 4px; vertical-align: top; }
+  .about td:first-child { color: var(--muted); width: 42%; }
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+  .flow span { padding: 4px 8px; border-radius: 8px; background: #1c2229; border: 1px solid var(--line); }
+  .flow em { color: var(--accent); font-style: normal; }
+  a { color: var(--accent); }
+  footer { text-align: center; color: var(--muted); font-size: 11px; padding: 6px 12px 18px; }
+
+  dialog { width: min(520px, calc(100vw - 24px)); max-height: calc(100vh - 48px); overflow: auto; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h2 { margin: 0 0 12px; font-size: 16px; }
+  .set { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .set small { display: block; color: var(--muted); font-size: 12px; }
+  .set input[type=range] { width: 120px; accent-color: var(--accent); vertical-align: middle; }
+  .set input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+  .set > span { white-space: nowrap; }
+  .snapimg { width: 100%; border-radius: 12px; display: block; }
 </style>
 </head>
 <body>
+<div class="wrap">
 <header>
   <div class="brand">F<span>.</span>O<span>.</span>R<span>.</span>G<span>.</span>E<span>.</span></div>
-  <div id="modePill" class="pill">offline</div>
+  <div class="hright">
+    <button id="modePill" class="pill" type="button" aria-label="Detection mode">offline</button>
+    <button id="settingsBtn" class="icon-btn" type="button" aria-label="Settings">⚙︎</button>
+  </div>
 </header>
 
 <div class="stage" id="stage">
   <video id="video" playsinline muted autoplay></video>
-  <canvas id="overlay" class="overlay"></canvas>
+  <canvas id="overlay" class="overlay" aria-label="Camera view. Tap an object to lock on."></canvas>
+  <div class="guide" id="guide"></div>
+  <div class="watchbadge" id="watchBadge"><span class="pill">● WATCHING</span></div>
   <div class="hud"><span id="fpsPill" class="pill">— fps</span><span id="lockPill" class="pill">AUTO</span></div>
   <div class="start" id="startScreen">
     <div class="brand" style="font-size:22px">F<span>.</span>O<span>.</span>R<span>.</span>G<span>.</span>E<span>.</span> Mobile</div>
-    <p>Point your camera at anything. Say or type "find cup" and FORGE will guide you to it.</p>
+    <p>Point your camera at your bench. Say or type "find wrench" and FORGE guides you to it. Tap any box to lock on.</p>
     <button class="primary" id="startBtn">Start camera</button>
+    <div class="progress" id="progress"><i id="progressBar"></i></div>
     <p id="startMsg" class="meta"></p>
   </div>
 </div>
 
 <form class="find" id="findForm">
-  <input id="findInput" placeholder="Find anything… (cup, phone, scissors)" autocomplete="off" enterkeyhint="search">
+  <input id="findInput" placeholder="Find anything… (wrench, pliers, cup)" autocomplete="off" enterkeyhint="search" aria-label="What to find">
   <button class="primary" type="submit">Find</button>
 </form>
 <div class="chips" id="toolButtons"></div>
-<div class="row2">
-  <button id="autoBtn">Auto</button>
-  <button id="seeBtn">What do you see</button>
-  <button id="micBtn" class="mic">🎙 Voice</button>
+<div class="row">
+  <button id="autoBtn" type="button">Auto</button>
+  <button id="seeBtn" type="button">What's here</button>
+  <button id="micBtn" class="mic" type="button">🎙 Voice</button>
+  <button id="snapBtn" type="button">📸 Snap</button>
 </div>
 
 <section>
@@ -95,32 +151,92 @@
 </section>
 
 <section>
+  <h2><span>Bench watch</span><span class="meta" id="benchState">off</span></h2>
+  <p class="help" id="benchHelp">Prop your phone so it sees your whole bench, then tap <b>Save bench</b>. FORGE logs every tool that leaves and comes back, like the original workbench.</p>
+  <div class="bench" id="bench"></div>
+  <div class="btnrow">
+    <button id="benchBtn" type="button">Save bench</button>
+    <button id="benchStop" type="button" disabled>Stop</button>
+  </div>
+</section>
+
+<section>
   <h2>In view</h2>
   <div class="inv" id="inventory"></div>
 </section>
 
 <section>
-  <h2>Session stats</h2>
+  <h2>Session</h2>
   <div class="stats">
     <div><b id="statFinds">0</b><span class="meta">finds</span></div>
     <div><b id="statCmds">0</b><span class="meta">commands</span></div>
     <div><b id="statInf">—</b><span class="meta">ms / frame</span></div>
+    <div><b id="statFps">—</b><span class="meta">fps</span></div>
   </div>
+  <p class="meta" id="statBackend" style="margin:8px 0 0">Model not loaded.</p>
 </section>
 
 <section>
   <h2>Event log</h2>
   <div class="log" id="log"></div>
-  <div style="display:flex; gap:8px; margin-top:8px">
-    <button id="clearLog" style="flex:1">Clear history</button>
-  </div>
+  <div class="btnrow"><button id="clearLog" type="button">Clear history</button></div>
 </section>
 
-<footer>Flexible Operations &amp; Robotics Guided Environment · on-device object detection</footer>
+<section>
+  <details>
+    <summary>How it works</summary>
+    <div class="about">
+      <p>F.O.R.G.E. (Flexible Operations &amp; Robotics Guided Environment) started as a CSULB senior design project: a smart workbench on a Raspberry Pi 5 that detected tools with YOLOv11, pointed at them with a laser on a pan-tilt mount, and took voice commands through Vosk.</p>
+      <p>This version runs the whole pipeline on a phone, in the browser. Nothing is uploaded: every camera frame is processed on the device.</p>
+      <h3>Pipeline</h3>
+      <div class="flow"><span>Camera</span><em>→</em><span>Letterbox 640²</span><em>→</em><span>YOLO11n (ONNX / WASM)</span><em>→</em><span>Decode + NMS</span><em>→</em><span>Tracker</span><em>→</em><span>Guidance · Voice · Bench log</span></div>
+      <h3>Pi → phone</h3>
+      <table>
+        <tr><td>Pi Camera + YOLOv11 (Python)</td><td>Phone camera + YOLO11n in onnxruntime-web</td></tr>
+        <tr><td>Laser on pan-tilt servos</td><td>Laser reticle, direction hints and sonar beeps</td></tr>
+        <tr><td>Vosk voice commands</td><td>Web Speech API</td></tr>
+        <tr><td>Piper / eSpeak TTS</td><td>speechSynthesis</td></tr>
+        <tr><td>SQLite tool events</td><td>Local event tables + bench checkout log</td></tr>
+      </table>
+      <h3>Tools model</h3>
+      <table>
+        <tr><td>Architecture</td><td>YOLO11n, 2.6M parameters, 640 px input</td></tr>
+        <tr><td>Classes</td><td>allen keys, hammer, handsaw, pliers, screwdriver, tape measure, wrench</td></tr>
+        <tr><td>Validation</td><td>mAP@50 98.1% · mAP@50-95 94.5% · precision 96.6% · recall 96.2%</td></tr>
+        <tr><td>Everyday mode</td><td>COCO-SSD (80 classes) in TensorFlow.js / WebGL</td></tr>
+      </table>
+      <p style="margin-top:10px"><a href="https://github.com/itznuth/forge-mobile" target="_blank" rel="noopener">Source code on GitHub</a></p>
+    </div>
+  </details>
+</section>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+<footer>On-device object detection · works offline after the first visit</footer>
+</div>
+
+<dialog id="settings">
+  <h2>Settings</h2>
+  <div class="set"><label for="setConf">Detection confidence<small>Lower finds more, but makes more mistakes</small></label><span><input id="setConf" type="range" min="25" max="90" step="5"> <b id="setConfVal"></b></span></div>
+  <div class="set"><label for="setVoice">Spoken replies<small>FORGE talks back</small></label><input id="setVoice" type="checkbox"></div>
+  <div class="set"><label for="setSonar">Sonar beeps<small>Faster beeps as the target gets centred. On iPhone the ring switch must be on.</small></label><input id="setSonar" type="checkbox"></div>
+  <div class="set"><label for="setSmooth">Smooth boxes<small>Less jitter, slightly more lag</small></label><input id="setSmooth" type="checkbox"></div>
+  <div class="set"><label for="setOverdue">Bench reminder<small>Speak up when a tool is out longer than this</small></label><span><input id="setOverdue" type="range" min="1" max="30" step="1"> <b id="setOverdueVal"></b></span></div>
+  <div class="set" id="torchRow" hidden><label for="setTorch">Flashlight<small>For dark benches</small></label><input id="setTorch" type="checkbox"></div>
+  <div class="btnrow"><button id="flipBtn" type="button">Switch camera</button><button id="closeSettings" type="button" class="primary" style="padding:10px">Done</button></div>
+</dialog>
+
+<dialog id="snapDialog">
+  <h2>Snapshot</h2>
+  <img id="snapImg" class="snapimg" alt="Camera snapshot with detections">
+  <div class="btnrow">
+    <button id="snapShare" type="button" class="primary" style="padding:10px">Share / Save</button>
+    <button id="snapClose" type="button">Close</button>
+  </div>
+  <p class="meta" style="margin:8px 0 0">On iPhone you can also press and hold the image to save it to Photos.</p>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js" crossorigin="anonymous"></script>
 <script src="forge.js"></script>
 </body>
 </html>
